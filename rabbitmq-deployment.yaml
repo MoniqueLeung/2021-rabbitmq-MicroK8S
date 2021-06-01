@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  labels:
+    app: rabbitmq
+spec:
+  ports:
+    - port: 80
+  selector:
+    app: rabbitmq
+    tier: frontend
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rabbitmq-pv-claim
+  labels:
+    app: rabbitmq
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  labels:
+    app: rabbitmq
+spec:
+  selector:
+    matchLabels:
+      app: rabbitmq
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+        tier: frontend
+    spec:
+      containers:
+      - image: rabbitmq:3-alpine
+        name: rabbitmq
+        env:
+        - name: RABBITMQ_DB_HOST
+          value: rabbitmq-mysql
+        - name: RABBITMQ_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-pass
+              key: password
+        ports:
+        - containerPort: 80
+          name: rabbitmq
+        volumeMounts:
+        - name: rabbitmq-persistent-storage
+          mountPath: /var/www/html
+      volumes:
+      - name: rabbitmq-persistent-storage
+        persistentVolumeClaim:
+          claimName: rabbitmq-pv-claim
